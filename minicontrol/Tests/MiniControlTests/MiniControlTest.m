@@ -18,7 +18,9 @@ static const NSTimeInterval kHomeButtonCoolOffTime = 1.0;
 @property (nonatomic, strong, readonly) InputController *inputController;
 @end
 
-@implementation MiniControlTest
+@implementation MiniControlTest {
+    InputController *_inputController;
+}
 
 + (void)load {
     int token;
