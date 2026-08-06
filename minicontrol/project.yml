@@ -1,0 +1,44 @@
+name: MiniControl
+options:
+  bundleIdPrefix: com.harut
+  deploymentTarget:
+    iOS: "15.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    CODE_SIGNING_ALLOWED: NO
+    CODE_SIGN_IDENTITY: ""
+    CODE_SIGNING_REQUIRED: NO
+    ENABLE_TESTABILITY: YES
+
+targets:
+  MiniControl:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: Tests/MiniControlTests
+        excludes:
+          - "**/.DS_Store"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.harut.MiniControl.xctrunner
+        PRODUCT_NAME: MiniControl
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: MiniControl
+        MACH_O_TYPE: mh_dylib
+        USES_XCTRUNNER: YES
+        LD_RUNPATH_SEARCH_PATHS:
+          - "$(inherited)"
+          - "@executable_path/Frameworks"
+          - "@loader_path/Frameworks"
+        CLANG_ENABLE_OBJC_ARC: YES
+        ENABLE_TESTABILITY: YES
+
+schemes:
+  MiniControl:
+    build:
+      targets:
+        MiniControl: all
+    test:
+      targets:
+        - MiniControl

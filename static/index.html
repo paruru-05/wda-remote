@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MiniControl Remote</title>
+<style>
+  :root {
+    --bg: #1e1e2e;
+    --panel: #27273a;
+    --border: #3a3a52;
+    --text: #e4e4ef;
+    --accent: #7aa2f7;
+    --danger: #f7768e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", "Noto Sans JP", sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { font-size: 16px; font-weight: 600; white-space: nowrap; }
+  .badge {
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: #333;
+    color: #aaa;
+  }
+  .badge.online { background: #2e4a2e; color: #9ce69c; }
+  .badge.offline { background: #4a2e2e; color: #e69c9c; }
+  .spacer { flex: 1; }
+  button, input, select {
+    background: #33334d;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  button:hover { background: #3d3d5c; }
+  button:active { background: #4a4a70; }
+  button.accent { background: var(--accent); color: #111; font-weight: 600; border: none; }
+  button.danger { background: var(--danger); color: #111; font-weight: 600; border: none; }
+  main {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+  .screen-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    position: relative;
+    background:
+      radial-gradient(circle at 20% 20%, #23233a 0%, #1a1a2a 100%);
+  }
+  #screen {
+    max-width: 100%;
+    max-height: 100%;
+    background: #000;
+    border-radius: 12px;
+    box-shadow: 0 8px 40px rgba(0,0,0,.6);
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
+    touch-action: none;
+    cursor: crosshair;
+    display: none;
+  }
+  #placeholder {
+    color: #666;
+    font-size: 14px;
+    text-align: center;
+    line-height: 1.8;
+  }
+  #statusText {
+    position: absolute;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,.75);
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    display: none;
+    z-index: 5;
+  }
+  .sidebar {
+    width: 280px;
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    padding: 12px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .sidebar section { display: flex; flex-direction: column; gap: 8px; }
+  .sidebar h2 { font-size: 12px; text-transform: uppercase; color: #888; letter-spacing: 1px; }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+  input[type="text"], input[type="number"] { width: 100%; }
+  .keyboard-hint { font-size: 11px; color: #888; }
+  .log {
+    background: #1a1a2a;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+    font-size: 11px;
+    font-family: monospace;
+    min-height: 80px;
+    max-height: 160px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: #bbb;
+  }
+  @media (max-width: 800px) {
+    main { flex-direction: column; }
+    .sidebar { width: 100%; border-left: none; border-top: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>MiniControl Remote</h1>
+  <span id="connBadge" class="badge offline">ランナー未接続</span>
+  <span id="lockBadge" class="badge offline">ロック</span>
+  <span class="spacer"></span>
+  <button class="accent" id="connectBtn">接続確認</button>
+  <button class="danger" id="disconnectBtn">切断</button>
+</header>
+
+<main>
+  <div class="screen-area" id="screenArea">
+    <div id="placeholder">
+      AirPlayミラーリングを開始するとiPhoneの画面が表示されます<br>
+      クリック=タップ / ドラッグ=スワイプ
+    </div>
+    <img id="screen" alt="iPhone screen" draggable="false">
+    <div id="statusText"></div>
+  </div>
+
+  <div class="sidebar">
+    <section>
+      <h2>接続情報</h2>
+      <div class="keyboard-hint">画面はAirPlay (UxPlay) 経由 / 操作はMiniControlランナー経由</div>
+    </section>
+
+    <section>
+      <h2>操作</h2>
+      <div class="row">
+        <button id="homeBtn">ホーム</button>
+        <button id="lockBtn">ロック</button>
+        <button id="unlockBtn">解除</button>
+      </div>
+      <div class="row">
+        <button id="screenshotBtn">スクショ取得</button>
+        <button id="sourceBtn">情報取得</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>テキスト入力</h2>
+      <div class="row">
+        <input type="text" id="textInput" placeholder="入力するテキスト">
+      </div>
+      <div class="row">
+        <button id="typeBtn">入力</button>
+        <button id="clearBtn">クリア</button>
+      </div>
+      <div class="keyboard-hint">日本語はIME変換ができないため、英数字が確実です</div>
+    </section>
+
+    <section>
+      <h2>アプリ操作</h2>
+      <div class="row">
+        <input type="text" id="appBundleId" placeholder="アプリBundleID">
+      </div>
+      <div class="row">
+        <button id="launchBtn">起動</button>
+        <button id="terminateBtn">終了</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>ログ</h2>
+      <div class="log" id="log"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+const connBadge = $('connBadge');
+const lockBadge = $('lockBadge');
+const screen = $('screen');
+const placeholder = $('placeholder');
+const statusText = $('statusText');
+const logBox = $('log');
+
+let deviceSize = null;
+let ws = null;
+let dragging = false;
+let dragStart = null;
+
+function log(msg) {
+  const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  logBox.textContent = (logBox.textContent + '\n' + line).trim();
+  logBox.scrollTop = logBox.scrollHeight;
+}
+
+function setStatus(text, ms = 2000) {
+  statusText.textContent = text;
+  statusText.style.display = 'block';
+  setTimeout(() => { statusText.style.display = 'none'; }, ms);
+}
+
+function setScreenSize(w, h) {
+  deviceSize = { width: w, height: h };
+}
+
+function convertToDevice(clientX, clientY) {
+  if (!deviceSize) return null;
+  const rect = screen.getBoundingClientRect();
+  const x = (clientX - rect.left) / rect.width * deviceSize.width;
+  const y = (clientY - rect.top) / rect.height * deviceSize.height;
+  return { x: Math.round(x), y: Math.round(y) };
+}
+
+async function api(path, method = 'GET', body = null) {
+  const opts = { method, headers: {} };
+  if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+  const resp = await fetch(path, opts);
+  if (!resp.ok) {
+    const data = await resp.json().catch(() => ({}));
+    throw new Error(data.detail || `HTTP ${resp.status}`);
+  }
+  return resp.json();
+}
+
+async function createSession() {
+  try {
+    const data = await api('/api/session', 'POST');
+    connBadge.className = 'badge online';
+    connBadge.textContent = 'ランナー接続中';
+    setScreenSize(data.windowSize.width, data.windowSize.height);
+    log(`接続OK 画面=${data.windowSize.width}x${data.windowSize.height}`);
+    connectWs();
+    refreshStatus();
+  } catch (e) {
+    log(`接続確認失敗: ${e.message}`);
+    setStatus('接続失敗: ' + e.message, 4000);
+  }
+}
+
+async function refreshStatus() {
+  try {
+    const st = await api('/api/status');
+    if (st.runner_online) {
+      connBadge.className = 'badge online';
+      connBadge.textContent = 'ランナー接続中';
+      lockBadge.className = 'badge online';
+      lockBadge.textContent = st.locked ? 'ロック中' : '解除中';
+    } else {
+      connBadge.className = 'badge offline';
+      connBadge.textContent = 'ランナー未接続';
+      lockBadge.className = 'badge offline';
+      lockBadge.textContent = 'ロック';
+    }
+    return st;
+  } catch (e) {
+    connBadge.className = 'badge offline';
+    connBadge.textContent = 'サーバー未応答';
+    return null;
+  }
+}
+
+async function disconnect() {
+  try { await api('/api/session', 'DELETE'); } catch (e) {}
+  if (ws) { ws.close(); ws = null; }
+  connBadge.className = 'badge offline';
+  connBadge.textContent = 'ランナー未接続';
+  lockBadge.className = 'badge offline';
+  lockBadge.textContent = 'ロック';
+  screen.style.display = 'none';
+  placeholder.style.display = 'block';
+  log('切断');
+}
+
+function connectWs() {
+  if (ws) ws.close();
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws/screen`);
+  ws.onmessage = (ev) => {
+    const msg = JSON.parse(ev.data);
+    if (msg.type === 'frame') {
+      const mime = msg.mime || 'image/png';
+      screen.src = 'data:' + mime + ';base64,' + msg.image;
+      screen.style.display = 'block';
+      placeholder.style.display = 'none';
+    } else if (msg.type === 'offline') {
+      screen.style.display = 'none';
+      placeholder.style.display = 'block';
+    } else if (msg.type === 'error') {
+      log('WS error: ' + msg.error);
+    }
+  };
+  ws.onclose = () => {
+    if (ws) ws = null;
+    log('ライブ配信切断');
+  };
+  ws.onerror = () => { log('WS error'); };
+}
+
+// ----- 画面インタラクション -----
+screen.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  dragging = true;
+  dragStart = convertToDevice(e.clientX, e.clientY);
+  screen.setPointerCapture(e.pointerId);
+});
+
+screen.addEventListener('pointermove', (e) => {
+  if (!dragging) return;
+});
+
+screen.addEventListener('pointerup', async (e) => {
+  if (!dragging) return;
+  dragging = false;
+  const end = convertToDevice(e.clientX, e.clientY);
+  if (!dragStart || !end) return;
+
+  const dx = end.x - dragStart.x;
+  const dy = end.y - dragStart.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  try {
+    if (dist < 15) {
+      await api('/api/tap', 'POST', { x: dragStart.x, y: dragStart.y });
+      log(`タップ (${dragStart.x}, ${dragStart.y})`);
+    } else {
+      await api('/api/swipe', 'POST', {
+        from_x: dragStart.x, from_y: dragStart.y,
+        to_x: end.x, to_y: end.y, duration: 0.2,
+      });
+      log(`スワイプ (${dragStart.x},${dragStart.y}) -> (${end.x},${end.y})`);
+    }
+  } catch (err) {
+    log(`操作失敗: ${err.message}`);
+  }
+});
+
+screen.addEventListener('pointercancel', () => { dragging = false; });
+
+// ----- ボタン -----
+$('connectBtn').addEventListener('click', createSession);
+$('disconnectBtn').addEventListener('click', disconnect);
+$('homeBtn').addEventListener('click', () => api('/api/home', 'POST').then(() => { log('ホーム'); refreshStatus(); }).catch(e => log(e.message)));
+$('lockBtn').addEventListener('click', () => api('/api/lock', 'POST').then(() => { log('ロック'); refreshStatus(); }).catch(e => log(e.message)));
+$('unlockBtn').addEventListener('click', () => api('/api/unlock', 'POST').then(() => { log('解除'); refreshStatus(); }).catch(e => log(e.message)));
+$('screenshotBtn').addEventListener('click', async () => {
+  try {
+    const data = await api('/api/screenshot');
+    const w = window.open('', '_blank');
+    const mime = data.mime || 'image/png';
+    w.document.write(`<img src="data:${mime};base64,${data.image}" style="max-width:100%">`);
+  } catch (e) { log(e.message); }
+});
+$('sourceBtn').addEventListener('click', async () => {
+  try {
+    const data = await api('/api/screeninfo');
+    setScreenSize(data.windowSize.width, data.windowSize.height);
+    log(`画面: ${data.windowSize.width}x${data.windowSize.height}`);
+    if (data.app && data.app.bundleId) log(`アプリ: ${data.app.bundleId}`);
+  } catch (e) { log(e.message); }
+});
+$('typeBtn').addEventListener('click', async () => {
+  const text = $('textInput').value;
+  if (!text) return;
+  try { await api('/api/type', 'POST', { text }); log(`入力: ${text}`); }
+  catch (e) { log(`入力失敗: ${e.message}`); }
+});
+$('clearBtn').addEventListener('click', () => api('/api/key', 'POST', { key: '\\ue003' }).then(() => log('クリア')).catch(e => log(e.message)));
+$('launchBtn').addEventListener('click', async () => {
+  const bid = $('appBundleId').value.trim();
+  if (!bid) return;
+  try { await api('/api/app/launch', 'POST', { bundle_id: bid }); log(`起動: ${bid}`); }
+  catch (e) { log(`起動失敗: ${e.message}`); }
+});
+$('terminateBtn').addEventListener('click', async () => {
+  const bid = $('appBundleId').value.trim();
+  if (!bid) return;
+  try { await api('/api/app/terminate', 'POST', { bundle_id: bid }); log(`終了: ${bid}`); }
+  catch (e) { log(`終了失敗: ${e.message}`); }
+});
+
+// ----- init -----
+(async () => {
+  try {
+    const st = await refreshStatus();
+    if (st && st.runner_online) {
+      setScreenSize(390, 844);
+      connectWs();
+      log('ランナー接続確認OK');
+    } else {
+      log('ランナー接続不可: ' + (st ? '未起動' : 'サーバー未応答'));
+    }
+  } catch (e) {
+    log('ステータス確認失敗: ' + e.message);
+  }
+})();
+</script>
+</body>
+</html>

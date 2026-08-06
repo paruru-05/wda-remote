@@ -1,0 +1,58 @@
+name: Build MiniControl
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'minicontrol/**'
+
+jobs:
+  build:
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Select Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -n 1)
+          if [ -z "$XCODE" ]; then XCODE=/Applications/Xcode.app; fi
+          sudo xcode-select -s "$XCODE"
+          echo "Using $XCODE"
+
+      - name: Generate Xcode project
+        working-directory: minicontrol
+        run: xcodegen generate
+
+      - name: Build (device, no code signing)
+        working-directory: minicontrol
+        run: >
+          xcodebuild
+          -project MiniControl.xcodeproj
+          -scheme MiniControl
+          -configuration Release
+          -destination 'generic/platform=iOS'
+          -derivedDataPath build
+          CODE_SIGNING_ALLOWED=NO
+          build
+
+      - name: Locate runner app
+        id: locate
+        run: |
+          APP=$(find minicontrol/build/Build/Products -name 'MiniControl-Runner.app' -maxdepth 2 | head -n 1)
+          echo "app=$APP" >> "$GITHUB_OUTPUT"
+          echo "Found: $APP"
+
+      - name: Package zip
+        run: |
+          ditto -c -k --keepParent "${{ steps.locate.outputs.app }}" \
+            "MiniControl-Runner-$(date +%Y%m%d-%H%M%S).zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MiniControl-Runner
+          path: MiniControl-Runner-*.zip
+          retention-days: 14
