@@ -7,6 +7,8 @@ typedef void (^MCRequestHandler)(NSDictionary *request, MCResponse respond);
 
 @interface WebSocketServer : NSObject
 
+@property (nonatomic, readonly) uint16_t port;
+
 - (instancetype)initWithPort:(uint16_t)port;
 
 // Starts the listener. Never blocks the calling thread.
