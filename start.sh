@@ -36,7 +36,7 @@ is_tunnel_up() { curl -s -m 2 http://127.0.0.1:49151/ >/dev/null 2>&1; }
 
 # インストール済みの MiniControl ランナー BundleID を探す (AltServer が .xctrunner.<SUFFIX> を付与)
 find_runner_bundle_id() {
-    "$PYM" apps list 2>/dev/null | grep -oE '"'"$MINICONTROL_PREFIX"'(\.[A-Z0-9]+)+"' \
+    "$PYM" apps list 2>/dev/null | grep -oE '"'"$MINICONTROL_PREFIX"'(\.[A-Za-z0-9]+)+"' \
         | tr -d '"' | sort -u | head -n 1
 }
 

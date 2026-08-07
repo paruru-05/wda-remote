@@ -17,7 +17,7 @@ cd "$(dirname "$0")"
 export PATH="/home/harut/.pyenv/versions/menv/bin:$PATH"
 
 UDID="00008110-00027D020CE0401E"
-IPA="/home/harut/wda-remote/wda-build/WebDriverAgentRunner-Runner-fixed2.ipa"
+IPA="/home/harut/wda-remote/wda-build/MiniControl-Runner.ipa"
 ANISETTE_URL="http://127.0.0.1:6969"
 
 APPLE_ID="${1:-}"
