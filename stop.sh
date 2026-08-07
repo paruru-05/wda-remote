@@ -17,5 +17,8 @@ pkill -f "[u]sbmux forward 9100 9100" 2>/dev/null
 echo "[stop] トンネル (tunneld) を停止..."
 sudo pkill -f "[r]emote tunneld" 2>/dev/null
 
+echo "[stop] AirPlay レシーバー (UxPlay) を停止..."
+pkill -x uxplay 2>/dev/null
+
 sleep 1
 echo "[stop] 完了"

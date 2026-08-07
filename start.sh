@@ -7,15 +7,17 @@
 #   4. DeveloperDiskImage をマウント
 #   5. MiniControl ランナーが動いていなければ dvt xcuitest で自動起動
 #   6. リモート操作サーバー (port 8101) を起動
-#   7. ブラウザで http://localhost:8101 を開く
+#   7. AirPlay レシーバー (UxPlay) を起動し、iPhone のミラーリング画面を受信
+#   8. ブラウザで http://localhost:8101 を開く
 #
-#   画面は別途 AirPlay ミラーリング (UxPlay) を使います (TODO: screen_airplay.sh)。
+#   ミラーリングは iPhone のコントロールセンターから手動で 1 回開始する。
 
 set -u
 
 UDID="00008110-00027D020CE0401E"
 MINICONTROL_PREFIX="com.harut.MiniControl.xctrunner"
 MINICONTROL_URL="ws://127.0.0.1:9100"
+MINICONTROL_AIRPLAY_NAME="MiniControl"
 APP_URL="http://127.0.0.1:8101"
 APP_PORT="8101"
 LOG_DIR="/tmp/wda-remote"
@@ -121,6 +123,18 @@ else
     say "MiniControl 起動完了"
 fi
 
+# ---------- 4.5 AirPlay レシーバー (UxPlay) ----------
+# 画面表示用。iPhone のコントロールセンターから手動でミラーリングを開始する。
+if pgrep -x uxplay >/dev/null 2>&1; then
+    say "UxPlay は既に稼働中"
+else
+    say "AirPlay レシーバー (UxPlay) を起動..."
+    if ! "$DIR/screen_airplay.sh"; then
+        echo "ERROR: UxPlay の起動に失敗しました"
+        exit 1
+    fi
+fi
+
 # ---------- 5. アプリサーバー ----------
 if is_server_up; then
     say "サーバーは既に稼働中"
@@ -140,5 +154,5 @@ echo "=============================================="
 echo "  MiniControl Remote 起動完了"
 echo "  ブラウザで開く: $APP_URL"
 echo "  停止: $(dirname "$0")/stop.sh"
-echo "  注意: 画面表示には AirPlay ミラーリング (UxPlay) の起動が必要です"
+echo "  画面: iPhone のコントロールセンター → 画面収録・ミラーリング → '$MINICONTROL_AIRPLAY_NAME'"
 echo "=============================================="

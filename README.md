@@ -3,7 +3,7 @@
 低遅延でiPhoneをブラウザから遠隔操作するWebアプリです。
 
 - **操作**: 自作XCUITestランナー **MiniControl** (WDA置き換え、WebSocket直接制御)
-- **画面**: AirPlayミラーリング (UxPlay) を想定 (TODO: `screen_airplay.sh` 未作成)
+- **画面**: AirPlayミラーリング (UxPlay) + GStreamerキャプチャ (`screen_airplay.sh` + server.py)
 
 動作実績: **iPhone 13 mini / iOS 18.7.3** (AltServer-Linux + zsign で署名)
 
@@ -11,10 +11,11 @@
 
 ```
 wda-remote/
-├── start.sh             # 一発起動 (トンネル + ポート転送 + MiniControl起動 + サーバー)
+├── start.sh             # 一発起動 (トンネル + ポート転送 + MiniControl起動 + UxPlay + サーバー)
 ├── stop.sh              # 停止
 ├── resign.sh            # 7日ごとの再署名 (あなたのターミナルで実行)
-├── server.py            # FastAPIサーバー (MiniControl WebSocketクライアント + ライブ配信)
+├── screen_airplay.sh    # AirPlay レシーバー (UxPlay) の起動
+├── server.py            # FastAPIサーバー (MiniControl WSクライアント + UxPlay画面キャプチャ配信)
 ├── minicontrol_client.py# MiniControl WSクライアント
 ├── static/index.html    # ブラウザUI
 ├── minicontrol/         # MiniControl ランナーのソース (XcodeGen + XCTest)
@@ -57,15 +58,32 @@ cd ~/wda-remote
 3. DeveloperDiskImage マウント
 4. ポート転送 (host:9100 -> iPhone:9100)
 5. MiniControl ランナーを `dvt xcuitest` で自動起動 (未起動時)
-6. リモート操作サーバー (port 8101) の起動
+6. AirPlay レシーバー (UxPlay) の起動 (`screen_airplay.sh`)
+7. リモート操作サーバー (port 8101) の起動
 
 停止するときは `./stop.sh`。
 
-> **画面表示の注意**: 現状は操作のみで、画面はAirPlayミラーリング (UxPlay) を
-> 別途起動してください。UxPlayの映像をブラウザへ配信する
-> `screen_airplay.sh` (GStreamerキャプチャ) は未実装です。
-> サーバーの `/ws/screen` は UxPlay キャプチャが書き込む `latest_frame` を配信する
-> 準備ができています。
+## 画面表示 (AirPlay ミラーリング)
+
+`start.sh` が UxPlay を起動し、iPhone のミラーリング映像をブラウザへ配信します。
+
+1. iPhone の **コントロールセンター** を開く
+2. **画面収録・ミラーリング** (2つ重なった四角のアイコン) をタップ
+3. **MiniControl** を選択 → ミラーリング開始
+4. ブラウザ (**http://localhost:8101**) に iPhone の画面が表示される
+
+### 仕組み
+
+```
+iPhone (AirPlay ミラー) → UxPlay (X11ウィンドウ 390x844)
+  → GStreamer (ximagesrc → jpegenc) → server.py (latest_frame)
+  → /ws/screen → ブラウザ (ライブ画面)
+```
+
+- 映像の遅延は Wi-Fi 経由の AirPlay 分のみ (WDA のスクショループとは別経路)
+- キャプチャはウィンドウの実サイズ (390x844) を1:1で配信。座標ズレなし
+- ミラー開始は iPhone から手動で 1 回。UxPlay を再起動してもサーバーが自動で再キャプチャ
+- 画面が映らない場合は `pgrep -x uxplay` / `/tmp/minicontrol_uxplay.log` を確認
 
 ## 使い方
 
@@ -118,7 +136,9 @@ cd ~/wda-remote
 | `dvt xcuitest` が「Failed to start service」 | iOS 17+ はトンネル+dev diskマウント必須 (ログ: `/tmp/wda-remote/tunneld.log`, `mounter.log`)。dev disk未マウントだと `No such service: com.apple.dt.testmanagerd.remote` |
 | ランナーが起動しない | `/tmp/wda-remote/minicontrol_console.log` を確認。署名の失効(7日)なら `./resign.sh` |
 | アプリがクラッシュする | 署名失効の可能性。再署名して iPhone で開発者を信頼。`~/wda-remote/AltServerData` は消さない |
-| ライブ画面が出ない | AirPlay (UxPlay) のミラーリングを開始する。`screen_airplay.sh` 未実装のため操作は可能 |
+| ライブ画面が出ない | iPhone のコントロールセンター → 画面収録・ミラーリング → **MiniControl** を選択。`pgrep -x uxplay` と `/tmp/minicontrol_uxplay.log` を確認 |
+| 画面が真っ黒・切れる | AirPlay は Wi-Fi 経路。Wi-Fi 混雑/距離を確認。UxPlay が落ちたら `./start.sh` 再実行 |
+| タップ位置がズレる | キャプチャサイズ (`/api/captureinfo`) が 390x844 以外の場合はサーバーログを確認。ウィンドウがリサイズされると再キャプチャされる |
 | タップ・スワイプが効かない | `./stop.sh` → `./start.sh` でランナーを再起動 |
 
 ## API
@@ -130,6 +150,7 @@ cd ~/wda-remote
 | `DELETE /api/session` | ダミー |
 | `GET /api/screenshot` | 最新キャプチャフレーム (base64) |
 | `GET /api/screeninfo` | 画面サイズ (390x844) |
+| `GET /api/captureinfo` | 実際のキャプチャサイズ `{size, frame}` |
 | `POST /api/tap` | タップ `{x, y}` |
 | `POST /api/swipe` | 座標ドラッグ `{from_x, from_y, to_x, to_y, duration}` |
 | `POST /api/type` | テキスト入力 `{text}` |
