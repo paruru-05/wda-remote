@@ -20,6 +20,7 @@ static const int kReadBufferSize = 1 << 20; // 1MB cap per frame
 @implementation WebSocketServer {
     int _listenFd;
     int _clientFd;
+    int _clientGen;
     MCRequestHandler _handler;
 }
 
@@ -114,10 +115,12 @@ static const int kReadBufferSize = 1 << 20; // 1MB cap per frame
         [self closeClient]; // single active client
         [self.writeLock lock];
         self->_clientFd = fd;
+        self->_clientGen++;
+        int gen = self->_clientGen;
         [self.writeLock unlock];
 
         dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
-            [self handleConnection:fd];
+            [self handleConnection:fd generation:gen];
         });
     }
 }
@@ -195,9 +198,10 @@ static const int kReadBufferSize = 1 << 20; // 1MB cap per frame
     return [digestData base64EncodedStringWithOptions:0];
 }
 
-- (void)handleConnection:(int)fd {
+- (void)handleConnection:(int)fd generation:(int)gen {
     if (![self doHandshake:fd]) {
         close(fd);
+        [self clearClientIfCurrent:fd generation:gen];
         return;
     }
     while (self.running) {
@@ -224,6 +228,15 @@ static const int kReadBufferSize = 1 << 20; // 1MB cap per frame
 done:
     NSLog(@"[MiniControl] client disconnected");
     close(fd);
+    [self clearClientIfCurrent:fd generation:gen];
+}
+
+- (void)clearClientIfCurrent:(int)fd generation:(int)gen {
+    [self.writeLock lock];
+    if (_clientFd == fd && _clientGen == gen) {
+        _clientFd = -1;
+    }
+    [self.writeLock unlock];
 }
 
 #pragma mark - Framing
