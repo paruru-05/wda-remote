@@ -21,7 +21,7 @@ targets:
           - "**/.DS_Store"
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.harut.MiniControl.xctrunner
+        PRODUCT_BUNDLE_IDENTIFIER: com.harut.MiniControl
         PRODUCT_NAME: MiniControl
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: MiniControl
