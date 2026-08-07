@@ -47,21 +47,40 @@ def _screen_env():
 
 
 def _find_uxplay_xid():
-    """Return the X window id of the UxPlay video window, or None."""
-    try:
-        out = subprocess.run(
-            ["xdotool", "search", "--name", "uxplay"],
-            capture_output=True, text=True, timeout=5, env=_screen_env(),
-        ).stdout
-    except Exception:
-        return None
-    xids = [line for line in out.split() if line.strip()]
-    if not xids:
-        return None
-    try:
-        return int(xids[0], 16) if xids[0].lower().startswith("0x") else int(xids[0])
-    except ValueError:
-        return None
+    """Return the X window id of the UxPlay video window, or None.
+
+    UxPlay names the window "<Name>@<hostname>" (e.g. "MiniControl@S5"), so
+    match both the configured AirPlay name and the literal "uxplay" default.
+    """
+    patterns = ["MiniControl", "uxplay"]
+    env = _screen_env()
+    for pat in patterns:
+        try:
+            out = subprocess.run(
+                ["xdotool", "search", "--name", pat],
+                capture_output=True, text=True, timeout=5, env=env,
+            ).stdout
+        except Exception:
+            continue
+        xids = [line for line in out.split() if line.strip()]
+        for x in xids:
+            try:
+                xid = int(x, 16) if x.lower().startswith("0x") else int(x)
+            except ValueError:
+                continue
+            # Skip window-manager/compositor frames; UxPlay video window is
+            # the direct child holding the image. Geometry sanity check.
+            name = None
+            try:
+                name = subprocess.run(
+                    ["xdotool", "getwindowname", str(xid)],
+                    capture_output=True, text=True, timeout=5, env=env,
+                ).stdout.strip()
+            except Exception:
+                pass
+            if name and ("MiniControl" in name or "uxplay" in name.lower()):
+                return xid
+    return None
 
 
 def _start_capture_thread():
