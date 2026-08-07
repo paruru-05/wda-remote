@@ -31,8 +31,20 @@ export PATH="/home/harut/.pyenv/versions/menv/bin:$PATH"
 mkdir -p "$LOG_DIR"
 
 say() { echo "[start] $*"; }
-# MiniControl は 9100 で WebSocket リスンする。TCP 接続可否で起動を判定する
-is_runner_up() { (echo > /dev/tcp/127.0.0.1/9100) >/dev/null 2>&1; }
+# MiniControl は 9100 で WebSocket リスンする。usbmux forward はホスト側ポートを
+# 常に開くため、TCP接続可否では判定できない。実際に WS ping を投げて応答を確認する。
+is_runner_up() {
+    timeout 4 python3 -c "
+import asyncio, websockets, json
+async def m():
+    async with websockets.connect('ws://127.0.0.1:9100', open_timeout=2) as ws:
+        await ws.send(json.dumps({'command': 'ping'}))
+        r = await ws.recv()
+        if 'locked' in r:
+            print(r)
+asyncio.run(m())
+" >/dev/null 2>&1
+}
 is_server_up() { curl -s -m 3 "$APP_URL/api/status" >/dev/null 2>&1; }
 is_tunnel_up() { curl -s -m 2 http://127.0.0.1:49151/ >/dev/null 2>&1; }
 
